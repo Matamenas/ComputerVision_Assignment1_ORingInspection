@@ -9,6 +9,9 @@ from scipy.signal import find_peaks
 # function to get histogram of an image
 def getHistValues(image):
 
+    # get image shape
+    m, n = image.shape
+
     # stores count of intensity value
     count = []
 
@@ -16,7 +19,7 @@ def getHistValues(image):
     r = []
 
     # Loop to traverse each intensity value
-    for k in range(0, 256):
+    for k in range(-10, 280):
         r.append(k)
         count1 = 0
 
@@ -28,6 +31,20 @@ def getHistValues(image):
         count.append(count1)
 
     return (r, count)
+
+# Automatic threshold from histogram valley
+def findValleyThreshold(hist, peaks):
+
+    peaks = sorted(peaks)
+
+    left_peak = peaks[0]
+    right_peak = peaks[1]
+
+    print(left_peak)
+    print(right_peak)
+
+    valley = np.argmin(hist[left_peak:right_peak]) + left_peak
+    return valley
 
 
 def threshold(image, t):
@@ -42,40 +59,36 @@ def threshold(image, t):
 
 # plot a histogram for each image
 for i in range(1, 16):
-    img = cv.imread('./ImagesToInspect/Oring' + str(i) + '.jpg', cv.IMREAD_GRAYSCALE)
+    img = cv.imread('./ImagesToInspect/Oring' + str(i) + '.jpg', 0)
+    copy = img.copy()
 
-    m, n = img.shape
-    r1, count1 = getHistValues(img)
+    r, hist = getHistValues(copy)
 
-    # compute histogram
-    counts, bin_edges = np.histogram(r1, bins=r1)
-    bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+    max_height = max(hist)
+    prominence = 0.01 * max_height
 
     # find peaks in histogram
-    peaks, _ = find_peaks(count1, prominence=100)
+    peaks, _ = find_peaks(hist, prominence=prominence)
 
-    if len(peaks) >= 2:
-        # Sort peaks by position
-        sorted_peaks = sorted(peaks, key=lambda p: bin_centers[p])
-        left_peak, right_peak = sorted_peaks[:2]
+    if len(peaks) < 2:
+        print(f"Image {i}:  No Clear Bimodal Histogram")
+        continue
 
-        # find valley index between the two peaks
-        valley_index = np.argmin(count1[left_peak:right_peak]) + left_peak
-        valley_x = bin_centers[valley_index]
-        valley_y = count1[valley_index]
-        print(f"Valley between peaks at x = {valley_x} and y = {valley_y}")
+    plt.stem(r, hist)
+    plt.xlabel('intensity value')
+    plt.ylabel('number of pixels')
+    plt.title('Histogram of the grayscale image')
+    plt.show()
 
-        plt.stem(r1, count1)
-        plt.xlabel('intensity value')
-        plt.ylabel('number of pixels')
-        plt.title('Histogram of the grayscale image')
-        plt.show()
+    t = findValleyThreshold(hist, peaks)
 
-        cv.imshow('./ImagesToInspect/Oring' + str(i) + '.jpg', img)
-        cv.waitKey(0)
-        cv.destroyAllWindows()
-    else:
-        print("No peaks detected")
+    print(f"Image {i}:  Automatic Threshold = {t}")
+
+    binary_img = threshold(img, t)
+
+    cv.imshow(f"ORing {i}", binary_img)
+    cv.waitKey(0)
+    cv.destroyAllWindows()
 
 # # loop to read in each image
 # for i in range(1, 16):

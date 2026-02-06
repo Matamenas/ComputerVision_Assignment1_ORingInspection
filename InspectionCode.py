@@ -2,12 +2,12 @@ import cv2 as cv
 import numpy as np
 import time
 import matplotlib.pyplot as plt
-
 from imageio import imread
+from scipy.signal import find_peaks
 
 
 # function to get histogram of an image
-def createHist(image):
+def getHistValues(image):
 
     # stores count of intensity value
     count = []
@@ -40,22 +40,42 @@ def threshold(image, t):
     return img
 
 
-
+# plot a histogram for each image
 for i in range(1, 16):
-    img = cv.imread('./ImagesToInspect/Oring' + str(i) + '.jpg', 0)
+    img = cv.imread('./ImagesToInspect/Oring' + str(i) + '.jpg', cv.IMREAD_GRAYSCALE)
 
     m, n = img.shape
-    r1, count1 = createHist(img)
+    r1, count1 = getHistValues(img)
 
-    plt.stem(r1, count1)
-    plt.xlabel('intensity value')
-    plt.ylabel('number of pixels')
-    plt.title('Histogram of the original image')
-    plt.show()
+    # compute histogram
+    counts, bin_edges = np.histogram(r1, bins=r1)
+    bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
 
-    cv.imshow('./ImagesToInspect/Oring' + str(i) + '.jpg', img)
-    cv.waitKey(0)
-    cv.destroyAllWindows()
+    # find peaks in histogram
+    peaks, _ = find_peaks(count1, prominence=100)
+
+    if len(peaks) >= 2:
+        # Sort peaks by position
+        sorted_peaks = sorted(peaks, key=lambda p: bin_centers[p])
+        left_peak, right_peak = sorted_peaks[:2]
+
+        # find valley index between the two peaks
+        valley_index = np.argmin(count1[left_peak:right_peak]) + left_peak
+        valley_x = bin_centers[valley_index]
+        valley_y = count1[valley_index]
+        print(f"Valley between peaks at x = {valley_x} and y = {valley_y}")
+
+        plt.stem(r1, count1)
+        plt.xlabel('intensity value')
+        plt.ylabel('number of pixels')
+        plt.title('Histogram of the grayscale image')
+        plt.show()
+
+        cv.imshow('./ImagesToInspect/Oring' + str(i) + '.jpg', img)
+        cv.waitKey(0)
+        cv.destroyAllWindows()
+    else:
+        print("No peaks detected")
 
 # # loop to read in each image
 # for i in range(1, 16):

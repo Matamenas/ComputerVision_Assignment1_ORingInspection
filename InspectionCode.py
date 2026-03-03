@@ -2,6 +2,7 @@ import cv2 as cv
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
+import time
 
 
 # function to get histogram of an image
@@ -109,7 +110,7 @@ def checkNeighbours(img, i, j):
     if i > 0 and j > 0 and img[i-1, j-1] != 256:
         neighbours.append(img[i-1, j-1])
     # check north-east neighbor
-    if i > 0 and j < cols - 1 and img[i-1, j-1] != 256:
+    if i > 0 and j < cols - 1 and img[i-1, j+1] != 256:
         neighbours.append(img[i-1, j+1])
     return neighbours
 
@@ -195,9 +196,12 @@ def compute_perimeter(img):
 
 
 # plot a histogram for each image
-for i in range(1, 16):
+for z in range(1, 16):
+
+    start = time.time()
+
     # read image in
-    img = cv.imread('./ImagesToInspect/Oring' + str(i) + '.jpg', 0)
+    img = cv.imread('./ImagesToInspect/Oring' + str(z) + '.jpg', 0)
     copy = img.copy()
 
     r, hist = getHistValues(copy)
@@ -209,7 +213,7 @@ for i in range(1, 16):
     peaks, _ = find_peaks(hist, prominence=prominence)
 
     if len(peaks) < 2:
-        print(f"Image {i}:  No Clear Bimodal Histogram")
+        print(f"Image {z}:  No Clear Bimodal Histogram")
         continue
 
     plt.stem(r, hist)
@@ -220,10 +224,12 @@ for i in range(1, 16):
 
     t = findValleyThreshold(hist, peaks)
 
-    print(f"Image {i}:  Automatic Threshold = {t}")
+    print(f"Image {z}:  Automatic Threshold = {t}")
 
     # Perform Thresholding to turn image Black Or White
     binary_img = threshold(img, t)
+
+    print("Unique Values in binary image", np.unique(binary_img))
 
     # Dilate the image to remove the impurities (Black Parts)
     dilated_img = dilate(binary_img, 2)
@@ -231,61 +237,81 @@ for i in range(1, 16):
     # Restore The Image to original without impurities
     eroded_img = erode(dilated_img, 2)
 
+    # First Scan of the image
     image_output = connected_component_analysis(eroded_img)
 
     print(image_output[1])
 
-    eroded_img = group_pixels(image_output[0], image_output[1])
+    # second scan of the image and grouping of pixels
+    label_img = group_pixels(image_output[0], image_output[1])
 
     # now i must extract Largest Component in the image
-    unique, counts = np.unique(eroded_img, return_counts=True)
+    unique, counts = np.unique(label_img, return_counts=True)
     label_sizes = dict(zip(unique, counts))
     label_sizes.pop(256, None)
     label_sizes.pop(0, None)
+
+    print("Unique values in o_ring after extracting largest component", np.unique(label_img))
 
     print("Label sizes:", label_sizes)
 
     largest_label = max(label_sizes, key=label_sizes.get)
     print("Largest Label:", largest_label)
+    #################################################################
 
-    # Now create a clean O-Ring Mask
-    o_ring = np.zeros_like(eroded_img)
+    # Now create a clean O-Ring Mask by keeping only the largest component
+    o_ring = np.zeros_like(label_img)
 
-    print("Unique values in o_ring", np.unique(o_ring))
+    for i in range(label_img.shape[0]):
+        for j in range(label_img.shape[1]):
+            if label_img[i,j] == largest_label:
+                o_ring[i,j] = 255
 
-    for x in range(eroded_img.shape[0]):
-        for y in range(eroded_img.shape[1]):
-            if eroded_img[x,y] == largest_label:
-                o_ring[x,y] = 255
+    print("Unique values in o_ring after filling largest component", np.unique(o_ring))
 
     # now that i have my O-Ring shape and sizes i can get the area
     area = np.sum(o_ring == 255)
 
-    print(f"Area of Image {i} = {area}")
+    print(f"Area of Image {z} = {area}")
 
     # lets get the perimeter of the ring
     perimeter = compute_perimeter(o_ring)
 
-    print(f"Perimeter of Image {i} = {perimeter}")
+    print(f"Perimeter of Image {z} = {perimeter}")
 
     # To compute circularity of a Ring there is a formula
     # C = (4pi * Area) / (Perimeter^2)
     # with this i should be able to determine whether the O-Ring is flawed or not
     circularity = (4 * np.pi * area) / (perimeter ** 2)
 
-    print(f"Circularity of Image {i} = {circularity}")
+    print(f"Circularity of Image {z} = {circularity}")
 
     # If the image is under a certain threshold of circularity it will be a fail
-    if circularity < 0.80:
+    if circularity < 0.30:
         result = "FAIL"
     else:
         result = "PASS"
 
-    cv.imshow(f"ORing {i}", binary_img)
-    cv.imshow(f"Dilated {i}", dilated_img)
-    cv.imshow(f"Eroded {i}", eroded_img)
+    cv.imshow(f"Thresholded ORing {z}", binary_img)
+    cv.imshow(f"Dilated {z}", dilated_img)
+    cv.imshow(f"Eroded {z}", eroded_img)
+    cv.imshow(f"Connected O-Ring {z}", o_ring)
 
+    rgb = cv.cvtColor(binary_img, cv.COLOR_GRAY2RGB)
 
+    # Text to say it Passed
+    if result == "PASS":
+        cv.putText(rgb, "PASS", (40,40), cv.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
+    else:
+        # Text to say it Failed
+        cv.putText(rgb, "FAIL", (40, 40), cv.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+
+    end = time.time()
+
+    total_time = end - start
+
+    cv.putText(rgb, f"{total_time} seconds", (40, 210), cv.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
+    cv.imshow(f"Final Inspected Image {z}", rgb)
 
     key = cv.waitKey(0)
     if key & 0xFF - ord('q'):

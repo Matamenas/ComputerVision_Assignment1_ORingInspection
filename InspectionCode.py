@@ -34,14 +34,19 @@ def getHistValues(image):
 # Automatic threshold from histogram valley
 def findValleyThreshold(hist, peaks):
 
+    # get list of peaks sorted in ascending order
     peaks = sorted(peaks)
 
+    # get the smaller peak and larger peak
     left_peak = peaks[0]
     right_peak = peaks[1]
 
+    # print them to screen
     print(left_peak)
     print(right_peak)
 
+    # slice the histogram into 2 parts left peak (inclusive) and right peak (exclusive)
+    # using numpy I can get the minimum values index and then just add the left peak to the slice and minimum value
     valley = np.argmin(hist[left_peak:right_peak]) + left_peak
     return valley
 
@@ -67,6 +72,7 @@ def threshold(img, t):
 def erode(img, num_levels):
     for level in range(num_levels):
         copy = img.copy()
+        # capture all neighbors
         neighbours = [(-1, -1), (-1, 0),(-1,1),(0,-1),(0, -1),(0,1),(1,-1),(1, 0),(1,1)]
         for i in range(1, img.shape[0]-1):
             for j in range(1, img.shape[1]-1):
@@ -96,7 +102,8 @@ def dilate(img, num_levels):
         img = copy
     return copy
 
-# Method to check for neighbors in connected component analysis
+# Method to check for neighbors in connected component labeling
+# takes in image and the current pixel location
 def checkNeighbours(img, i, j):
     neighbours = []
     rows, cols = img.shape
@@ -114,6 +121,9 @@ def checkNeighbours(img, i, j):
         neighbours.append(img[i-1, j+1])
     return neighbours
 
+# method to be used for connected component labeling (CCL) after finding regions
+# essentialy here we just group the labels into equivalency classes (and later we assign each object with its corresponding label)
+# if there was more than one object it would get its own class aswell
 def equivalence_table_post_proccessing(equivalence_table):
     keys = list(equivalence_table.keys())
     for key in keys:
@@ -136,6 +146,7 @@ def connected_component_analysis(img):
     for i in range(img.shape[0]):
         for j in range(img.shape[1]):
 
+            # check if pixel is part of a connected component
             if img[i, j] > 1:
                 neighbors = checkNeighbours(output_image, i, j)
                 if len(neighbors) == 0:
@@ -160,6 +171,8 @@ def group_pixels(label_img, equivalency_table):
     # lets create a mapping from every equivalent label to its smallest label
     label_map = {}
 
+    # now i call the equivalency table from the first scan
+    # because we need to group all labels
     for key, value_set in equivalency_table.items():
         smallest = min([key] + list(value_set))
         label_map[key] = smallest
@@ -198,14 +211,18 @@ def compute_perimeter(img):
 # plot a histogram for each image
 for z in range(1, 16):
 
+    # start time
     start = time.time()
 
     # read image in
     img = cv.imread('./ImagesToInspect/Oring' + str(z) + '.jpg', 0)
     copy = img.copy()
 
+    # get the histogram values (pixels and intensity)
     r, hist = getHistValues(copy)
 
+    # dynamically get the max height of each histogram
+    # and then get 1% of that height to be the prominence (it just works)
     max_height = max(hist)
     prominence = 0.01 * max_height
 
@@ -237,7 +254,7 @@ for z in range(1, 16):
     # Restore The Image to original without impurities
     eroded_img = erode(dilated_img, 2)
 
-    # First Scan of the image
+    # First Scan of the image for connected component labeling
     image_output = connected_component_analysis(eroded_img)
 
     print(image_output[1])
@@ -259,7 +276,7 @@ for z in range(1, 16):
     print("Largest Label:", largest_label)
     #################################################################
 
-    # Now create a clean O-Ring Mask by keeping only the largest component
+    # Now create a clean O-Ring Mask by keeping only the largest component (The O-Ring 255)
     o_ring = np.zeros_like(label_img)
 
     for i in range(label_img.shape[0]):
@@ -274,7 +291,7 @@ for z in range(1, 16):
 
     print(f"Area of Image {z} = {area}")
 
-    # lets get the perimeter of the ring
+    # let's get the perimeter of the ring
     perimeter = compute_perimeter(o_ring)
 
     print(f"Perimeter of Image {z} = {perimeter}")
@@ -306,6 +323,7 @@ for z in range(1, 16):
         # Text to say it Failed
         cv.putText(rgb, "FAIL", (40, 40), cv.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
+    # end timer
     end = time.time()
 
     total_time = end - start

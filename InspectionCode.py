@@ -298,7 +298,7 @@ for z in range(1, 16):
 
     # To compute circularity of a Ring there is a formula
     # C = (4pi * Area) / (Perimeter^2)
-    # with this i should be able to determine whether the O-Ring is flawed or not
+    # with this I should be able to determine whether the O-Ring is flawed or not
     circularity = (4 * np.pi * area) / (perimeter ** 2)
 
     print(f"Circularity of Image {z} = {circularity}")
@@ -309,6 +309,7 @@ for z in range(1, 16):
     else:
         result = "PASS"
 
+    # show the images one by one to show process
     cv.imshow(f"Thresholded ORing {z}", binary_img)
     cv.imshow(f"Dilated {z}", dilated_img)
     cv.imshow(f"Eroded {z}", eroded_img)
@@ -318,40 +319,22 @@ for z in range(1, 16):
 
     # Text to say it Passed
     if result == "PASS":
-        cv.putText(rgb, "PASS", (40,40), cv.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
+        cv.putText(rgb, "PASS", (15,40), cv.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
     else:
         # Text to say it Failed
-        cv.putText(rgb, "FAIL", (40, 40), cv.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+        cv.putText(rgb, "FAIL", (15, 40), cv.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
     # end timer
     end = time.time()
 
+    # total time taken
     total_time = end - start
 
-    cv.putText(rgb, f"{total_time} seconds", (40, 210), cv.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
+    # Show Final result
+    cv.putText(rgb, f" {total_time:.2f} Secs", (1, 215), cv.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
     cv.imshow(f"Final Inspected Image {z}", rgb)
 
     key = cv.waitKey(0)
     if key & 0xFF - ord('q'):
         break
     cv.destroyAllWindows()
-
-# # loop to read in each image
-# for i in range(1, 16):
-#     img = cv.imread('./ImagesToInspect/Oring' + str(i) + '.jpg', 0)
-#     copy = img.copy()
-#
-#
-#     thresh = 100
-#     bw = threshold(img, thresh)
-#     rgb = cv.cvtColor(bw, cv.COLOR_GRAY2RGB)
-#
-#     # Text to say it Passed
-#     cv.putText(rgb, "PASS", (40,40), cv.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
-#
-#     # Text to say it Failed
-#     cv.putText(rgb, "FAIL", (40, 40), cv.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-#
-#     cv.imshow('thresholded image', rgb)
-#     cv.waitKey(0)
-#     cv.destroyAllWindows()
